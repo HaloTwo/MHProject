@@ -86,6 +86,9 @@ void AMHProjectCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMHProjectCharacter::Look);
+
+		// Attack
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMHProjectCharacter::Attack);
 	}
 	else
 	{
@@ -128,3 +131,29 @@ void AMHProjectCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
+
+void AMHProjectCharacter::Attack()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Attack() function called"));
+
+	// 애니메이션 블루프린트에 있는 bIsAttacking 변수를 true로 설정
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		// 애니메이션 몽타주 재생
+		if (AttackMontage)
+		{
+			PlayAnimMontage(AttackMontage);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AttackMontage is not set!"));
+		}
+	}
+	else 
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AttackMontage is out!"));
+	}
+
+}
+
+
