@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+// 필요한 헤더 파일 포함
 #include "MHProjectCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
@@ -11,149 +12,186 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 
+// 로그 카테고리 정의
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
 // AMHProjectCharacter
 
+// 클래스 생성자
 AMHProjectCharacter::AMHProjectCharacter()
 {
-	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
-	// Don't rotate when the controller rotates. Let that just affect the camera.
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationYaw = false;
-	bUseControllerRotationRoll = false;
+    // 캡슐 컴포넌트 초기화 (캐릭터의 충돌 크기 설정)
+    GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
-	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
+    // 컨트롤러 회전에 의해 캐릭터가 회전하지 않도록 설정
+    bUseControllerRotationPitch = false;
+    bUseControllerRotationYaw = false;
+    bUseControllerRotationRoll = false;
 
-	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
-	// instead of recompiling to adjust them
-	GetCharacterMovement()->JumpZVelocity = 700.f;
-	GetCharacterMovement()->AirControl = 0.35f;
-	GetCharacterMovement()->MaxWalkSpeed = 500.f;
-	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
-	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
-	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
+    // 캐릭터 이동 관련 설정
+    GetCharacterMovement()->bOrientRotationToMovement = true; // 입력 방향으로 이동
+    GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // 회전 속도
+    GetCharacterMovement()->JumpZVelocity = 700.f; // 점프 속도
+    GetCharacterMovement()->AirControl = 0.35f; // 공중에서의 제어력
+    GetCharacterMovement()->MaxWalkSpeed = 500.f; // 최대 걷기 속도
+    GetCharacterMovement()->MinAnalogWalkSpeed = 20.f; // 최소 아날로그 걷기 속도
+    GetCharacterMovement()->BrakingDecelerationWalking = 2000.f; // 걷기 감속
+    GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f; // 낙하 감속
 
-	// Create a camera boom (pulls in towards the player if there is a collision)
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f; // The camera follows at this distance behind the character	
-	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+    // 카메라 붐 생성 (캐릭터 뒤로 따라오는 카메라 거리 설정)
+    CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+    CameraBoom->SetupAttachment(RootComponent);
+    CameraBoom->TargetArmLength = 400.0f; // 카메라와 캐릭터 간의 거리
+    CameraBoom->bUsePawnControlRotation = true; // 컨트롤러 방향에 따라 카메라 회전
 
-	// Create a follow camera
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
-
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+    // 팔로우 카메라 생성
+    FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+    FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // 카메라 붐에 연결
+    FollowCamera->bUsePawnControlRotation = false; // 카메라가 팔 회전에 따라 회전하지 않음
 }
 
+// 게임 시작 시 호출
 void AMHProjectCharacter::BeginPlay()
 {
-	// Call the base class  
-	Super::BeginPlay();
+    // 부모 클래스의 BeginPlay 호출
+    Super::BeginPlay();
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Input
 
+// 플레이어 입력 설정
 void AMHProjectCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	// Add Input Mapping Context
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(DefaultMappingContext, 0);
-		}
-	}
-	
-	// Set up action bindings
-	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
-		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+    // 입력 매핑 컨텍스트 추가
+    if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+        {
+            Subsystem->AddMappingContext(DefaultMappingContext, 0); // 기본 매핑 컨텍스트 추가
+        }
+    }
 
-		// Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMHProjectCharacter::Move);
+    // 입력 액션 바인딩
+    if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 
-		// Looking
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMHProjectCharacter::Look);
+        // 점프 바인딩
+        EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
+        EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
-		// Attack
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMHProjectCharacter::Attack);
-	}
-	else
-	{
-		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
-	}
+        // 이동 바인딩
+        EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMHProjectCharacter::Move);
+
+        // 시야 전환 바인딩
+        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMHProjectCharacter::Look);
+
+        // 공격 바인딩
+        EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMHProjectCharacter::Attack);
+    }
+    else
+    {
+        // Enhanced Input을 찾지 못했을 때 오류 로그 출력
+        UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component!"), *GetNameSafe(this));
+    }
 }
 
+// 이동 처리
 void AMHProjectCharacter::Move(const FInputActionValue& Value)
 {
-	// input is a Vector2D
-	FVector2D MovementVector = Value.Get<FVector2D>();
+    FVector2D MovementVector = Value.Get<FVector2D>(); // 입력 값에서 2D 벡터 추출
 
-	if (Controller != nullptr)
-	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
+    if (Controller != nullptr)
+    {
+        // 이동 시 콤보 및 공격 애니메이션 리셋
+        if (MovementVector.X != 0.0f || MovementVector.Y != 0.0f)
+        {
+            ResetCombo();
+            StopAnimMontage(AttackMontage);
+        }
 
-		// get forward vector
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
-		// get right vector 
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+        // 컨트롤러 방향으로 이동
+        const FRotator Rotation = Controller->GetControlRotation();
+        const FRotator YawRotation(0, Rotation.Yaw, 0);
+        const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+        const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
-		AddMovementInput(ForwardDirection, MovementVector.Y);
-		AddMovementInput(RightDirection, MovementVector.X);
-	}
+        AddMovementInput(ForwardDirection, MovementVector.Y);
+        AddMovementInput(RightDirection, MovementVector.X);
+    }
 }
 
+// 시야 전환 처리
 void AMHProjectCharacter::Look(const FInputActionValue& Value)
 {
-	// input is a Vector2D
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
+    FVector2D LookAxisVector = Value.Get<FVector2D>(); // 입력 값에서 2D 벡터 추출
 
-	if (Controller != nullptr)
-	{
-		// add yaw and pitch input to controller
-		AddControllerYawInput(LookAxisVector.X);
-		AddControllerPitchInput(LookAxisVector.Y);
-	}
+    if (Controller != nullptr)
+    {
+        // 컨트롤러의 피치와 요 값 추가
+        AddControllerYawInput(LookAxisVector.X);
+        AddControllerPitchInput(LookAxisVector.Y);
+    }
 }
 
+// 공격 처리
 void AMHProjectCharacter::Attack()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Attack() function called"));
+    // 공격 함수 호출 시 로그 출력
+    UE_LOG(LogTemp, Warning, TEXT("Attack() called - ComboCount: %d, bCanNextAttack: %d"), ComboCount, bCanNextAttack);
 
-	// 애니메이션 블루프린트에 있는 bIsAttacking 변수를 true로 설정
-	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
-	{
-		// 애니메이션 몽타주 재생
-		if (AttackMontage)
-		{
-			PlayAnimMontage(AttackMontage);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("AttackMontage is not set!"));
-		}
-	}
-	else 
-	{
-		UE_LOG(LogTemp, Warning, TEXT("AttackMontage is out!"));
-	}
+    // 공격 불가능한 상태라면 리턴
+    if (!bCanNextAttack)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Cannot attack now - waiting for animation"));
+        return;
+    }
 
+    if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+    {
+        if (!AttackMontage) return;
+
+        // 콤보 상태에 따라 애니메이션 재생
+        switch (ComboCount)
+        {
+        case 0:
+            PlayAnimMontage(AttackMontage, 0.75f, FName("Default"));
+            ComboCount = 1;
+            break;
+
+        case 1:
+            PlayAnimMontage(AttackMontage, 1.0f, FName("Attack1"));
+            ComboCount = 2;
+            break;
+
+        case 2:
+            PlayAnimMontage(AttackMontage, 1.5f, FName("Attack2"));
+            ComboCount = 0; // 마지막 공격 후 콤보 리셋
+            break;
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("Playing attack animation - ComboCount: %d"), ComboCount);
+        bCanNextAttack = false; // 다음 공격 불가능 상태로 설정
+    }
 }
 
+// 콤보 리셋 함수
+void AMHProjectCharacter::ResetCombo()
+{
+    ComboCount = 0; // 콤보 카운트 초기화
+    bCanNextAttack = true; // 다음 공격 가능 상태로 설정
+}
 
+// 다음 공격 가능 상태 활성화
+void AMHProjectCharacter::EnableNextAttack()
+{
+    UE_LOG(LogTemp, Warning, TEXT("EnableNextAttack called - Current ComboCount: %d"), ComboCount);
+    bCanNextAttack = true;
+}
+
+// 다음 공격 가능 상태 비활성화
+void AMHProjectCharacter::DisableNextAttack()
+{
+    UE_LOG(LogTemp, Warning, TEXT("DisableNextAttack called!"));
+    bCanNextAttack = false;
+}

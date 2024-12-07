@@ -44,9 +44,29 @@ class AMHProjectCharacter : public ACharacter
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* AttackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* AttackMontage;
+
+
+	int32 ComboCount = 0;
+	bool bIsAttacking = false;     // 현재 공격 중인지
+	bool bCanNextAttack = true;    // 다음 공격이 가능한지
+	FTimerHandle ComboTimer;
+
 public:
 	AMHProjectCharacter();
-	
+
+	UFUNCTION()
+	void ResetCombo();
+
+	UFUNCTION(BlueprintCallable)
+	void EnableNextAttack();
+
+	UFUNCTION(BlueprintCallable)
+	void DisableNextAttack();
 
 protected:
 
@@ -55,7 +75,8 @@ protected:
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
-			
+
+	void Attack();
 
 protected:
 	// APawn interface

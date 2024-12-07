@@ -20,7 +20,7 @@ AMHProjectCharacter::AMHProjectCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -73,10 +73,10 @@ void AMHProjectCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-	
+
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
+
 		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
@@ -86,6 +86,9 @@ void AMHProjectCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMHProjectCharacter::Look);
+
+		// Attack
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMHProjectCharacter::Attack);
 	}
 	else
 	{
@@ -100,17 +103,19 @@ void AMHProjectCharacter::Move(const FInputActionValue& Value)
 
 	if (Controller != nullptr)
 	{
-		// find out which way is forward
+		// 이동 시 콤보 리셋
+		if (MovementVector.X != 0.0f || MovementVector.Y != 0.0f && ComboCount > 0)
+		{
+			ResetCombo();
+			StopAnimMontage(AttackMontage);
+		}
+
+		// 기존 이동 코드...
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
-		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -128,3 +133,64 @@ void AMHProjectCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
+
+void AMHProjectCharacter::Attack()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Attack() called - ComboCount: %d, bCanNextAttack: %d"), ComboCount, bCanNextAttack);
+
+	if (!bCanNextAttack)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot attack now - waiting for animation"));
+		return;
+	}
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (!AttackMontage) return;
+
+		if (ComboCount == 0)  // 첫 번째 공격
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Starting first attack"));
+			PlayAnimMontage(AttackMontage);  // Default부터 시작
+			ComboCount = 1;
+		}
+		else if (ComboCount == 1)  // 두 번째 공격
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Starting second attack"));
+			PlayAnimMontage(AttackMontage, 1.0f, FName("Attack1"));
+			ComboCount = 2;
+		}
+		else if (ComboCount == 2)  // 세 번째 공격
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Starting third attack"));
+			PlayAnimMontage(AttackMontage, 1.0f, FName("Attack2"));
+			ComboCount = 3;
+		}
+
+		bCanNextAttack = false;  // 공격 시작하면 다음 공격 불가능하게
+	}
+}
+
+// ResetCombo 함수 구현
+void AMHProjectCharacter::ResetCombo()
+{
+	ComboCount = 0;
+	bIsAttacking = false;
+	bCanNextAttack = true;
+}
+
+void AMHProjectCharacter::DisableNextAttack()
+{
+	bCanNextAttack = false;
+}
+
+void AMHProjectCharacter::EnableNextAttack()
+{
+	bCanNextAttack = true;
+	if (ComboCount >= 3)  // 콤보가 끝났으면 리셋
+	{
+		ResetCombo();
+	}
+}
+
+

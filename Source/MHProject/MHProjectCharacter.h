@@ -7,75 +7,111 @@
 #include "Logging/LogMacros.h"
 #include "MHProjectCharacter.generated.h"
 
+// 로그 카테고리 선언
+DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
+
+// 전방 선언(클래스와 구조체)
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
-
-UCLASS(config=Game)
+/**
+ * AMHProjectCharacter
+ * - 게임 캐릭터의 기본 동작 및 입력 처리를 정의한 클래스
+ */
+UCLASS(config = Game)
 class AMHProjectCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
-	/** Camera boom positioning the camera behind the character */
+private:
+	/** 카메라 붐: 캐릭터 뒤에서 카메라를 위치시키기 위한 컴포넌트 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 
-	/** Follow camera */
+	/** 팔로우 카메라: 플레이어를 따라다니는 카메라 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
-	
-	/** MappingContext */
+
+	/** 입력 매핑 컨텍스트 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
 
-	/** Jump Input Action */
+	/** 점프 입력 액션 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* JumpAction;
 
-	/** Move Input Action */
+	/** 이동 입력 액션 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* MoveAction;
 
-	/** Look Input Action */
+	/** 카메라 회전 입력 액션 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* LookAction;
 
+	/** 공격 입력 액션 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* AttackAction;
 
+	/** 공격 애니메이션 몽타주 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* AttackMontage;
 
+	/** 콤보 카운트 */
+	int32 ComboCount = 0;
+
+	/** 현재 공격 중인지 여부 */
+	bool bIsAttacking = false;
+
+	/** 다음 공격이 가능한지 여부 */
+	bool bCanNextAttack = true;
+
+	/** 콤보 타이머 핸들 */
+	FTimerHandle ComboTimer;
 
 public:
+	/** 생성자 */
 	AMHProjectCharacter();
-	
+
+	/** 콤보 초기화 */
+	void ResetCombo();
+
+	/** 다음 공격 활성화 */
+	UFUNCTION(BlueprintCallable)
+	void EnableNextAttack();
+
+	/** 다음 공격 비활성화 */
+	UFUNCTION(BlueprintCallable)
+	void DisableNextAttack();
 
 protected:
-
-	/** Called for movement input */
+	/** 이동 입력 처리 */
 	void Move(const FInputActionValue& Value);
 
-	/** Called for looking input */
+	/** 카메라 회전 입력 처리 */
 	void Look(const FInputActionValue& Value);
 
+	/** 공격 처리 */
 	void Attack();
 
 protected:
-	// APawn interface
+	/**
+	 * 입력 컴포넌트를 설정하는 함수 (APawn 인터페이스 구현)
+	 * @param PlayerInputComponent 입력 컴포넌트
+	 */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	
-	// To add mapping context
+
+	/**
+	 * 시작 시 호출되는 함수 (맵핑 컨텍스트 추가)
+	 */
 	virtual void BeginPlay();
 
 public:
-	/** Returns CameraBoom subobject **/
+	/** CameraBoom 서브오브젝트 반환 */
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	/** Returns FollowCamera subobject **/
+
+	/** FollowCamera 서브오브젝트 반환 */
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
-
