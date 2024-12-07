@@ -59,6 +59,12 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* AttackMontage;
 
+	/** 콤보 타이머 핸들 */
+	FTimerHandle ComboTimer;
+
+	/** 콤보 타이머 시간*/
+	const float fCombotime = 1.5f;
+
 	/** 콤보 카운트 */
 	int32 ComboCount = 0;
 
@@ -67,9 +73,6 @@ private:
 
 	/** 다음 공격이 가능한지 여부 */
 	bool bCanNextAttack = true;
-
-	/** 콤보 타이머 핸들 */
-	FTimerHandle ComboTimer;
 
 public:
 	/** 생성자 */
