@@ -231,11 +231,21 @@ void AMHProjectCharacter::Look(const FInputActionValue& Value)
 // 공격 처리
 void AMHProjectCharacter::Attack()
 {
-    // 공격 불가능한 상태라면 리턴
-    if (!bCanNextAttack || !HasEnoughStamina(AttackStaminaCost)) return;
 
-    // 현재 상태가 공격 캔슬이 가능한지 확인
-    if (!CanCancelIntoAction(ECharacterState::Attacking)) return;
+    // 공격 불가능한 상태라면 리턴
+    if (!bCanNextAttack)
+    {
+        return;
+    }
+
+    if (!HasEnoughStamina(AttackStaminaCost))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("스태미나 부족: %f < %f"), CurrentStamina, AttackStaminaCost);
+        return;
+    }
+
+    // 상태 체크 일시적으로 비활성화
+    // if (!CanCancelIntoAction(ECharacterState::Attacking)) return;
 
     // 스태미나 소모
     ConsumeStamina(AttackStaminaCost);
@@ -246,7 +256,11 @@ void AMHProjectCharacter::Attack()
 
     if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
     {
-        if (!AttackMontage) return;
+        if (!AttackMontage)
+        {
+            UE_LOG(LogTemp, Error, TEXT("AttackMontage가 설정되지 않았습니다!"));
+            return;
+        }
 
         // 무기 타입에 따른 속도 보정
         float PlayRate = GetWeaponSpeedModifier();
@@ -269,43 +283,19 @@ void AMHProjectCharacter::Attack()
             break;
         }
 
-        // 무기 타입별 접두사 추가 (예: GS_Default, LS_Attack1 등)
-        FString WeaponPrefix;
-        switch (CurrentWeaponType)
-        {
-        case EWeaponType::GreatSword:
-            WeaponPrefix = "GS_";
-            break;
-        case EWeaponType::LongSword:
-            WeaponPrefix = "LS_";
-            break;
-        case EWeaponType::DualBlades:
-            WeaponPrefix = "DB_";
-            break;
-        case EWeaponType::HammerAxe:
-            WeaponPrefix = "HA_";
-            break;
-        }
+        UE_LOG(LogTemp, Warning, TEXT("몽타주 재생: %s, 콤보: %d"), *SectionName.ToString(), ComboCount);
 
-        FName WeaponSection = FName(*(WeaponPrefix + SectionName.ToString()));
-
-        // 해당 섹션이 몽타주에 존재하는지 확인
-        if (AttackMontage->IsValidSectionName(WeaponSection))
-        {
-            PlayAnimMontage(AttackMontage, PlayRate, WeaponSection);
-        }
-        else
-        {
-            // 폴백으로 기본 섹션 사용
-            PlayAnimMontage(AttackMontage, PlayRate, SectionName);
-        }
+        // 몽타주 재생
+        float Duration = PlayAnimMontage(AttackMontage, PlayRate, SectionName);
+        UE_LOG(LogTemp, Warning, TEXT("몽타주 재생 시간: %f"), Duration);
 
         GetWorldTimerManager().SetTimer(ComboTimer, this, &AMHProjectCharacter::ResetCombo, fCombotime, false);
 
-        UE_LOG(LogTemp, Warning, TEXT("Playing attack animation - ComboCount: %d, Weapon: %s"),
-            ComboCount, *WeaponPrefix);
-
         bCanNextAttack = false; // 다음 공격 불가능 상태로 설정
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AnimInstance를 찾을 수 없습니다!"));
     }
 }
 
@@ -315,6 +305,9 @@ void AMHProjectCharacter::ResetCombo()
     ComboCount = 0; // 콤보 카운트 초기화
     bCanNextAttack = true; // 다음 공격 가능 상태로 설정
     bIsAttacking = false;
+
+    // 이동 속도 복구
+    GetCharacterMovement()->MaxWalkSpeed = 500.0f;
 
     // 공격 상태에서만 Idle로 변경
     if (CurrentState == ECharacterState::Attacking)
@@ -777,6 +770,7 @@ void AMHProjectCharacter::UpdateWeaponVisuals()
     // 무기 타입에 따라 다른 메시와 스케일 적용
     UStaticMesh* NewMesh = nullptr;
     FVector Scale = FVector(1.0f);
+    FRotator Rotation = FRotator(180.0f, 180.0f, 0.0f); // Y축 기준 180도 회전
 
     // 쌍검용 왼손 무기 변수를 미리 선언
     UStaticMeshComponent* LeftWeapon = nullptr;
@@ -785,20 +779,18 @@ void AMHProjectCharacter::UpdateWeaponVisuals()
     {
     case EWeaponType::GreatSword:
         // 대검 메시 찾기
-        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapons/GreatSword/GreatSword_Mesh"));
-        Scale = FVector(1.2f);
+        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapon/GreatSword/GreatSword_Mesh"));
         break;
 
     case EWeaponType::LongSword:
         // 태도 메시 찾기
-        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapons/LongSword/LongSword_Mesh"));
-        Scale = FVector(1.0f);
+        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapon/LongSword/LongSword_Mesh"));
         break;
 
     case EWeaponType::DualBlades:
     {  // 중괄호로 스코프를 제한
         // 쌍검 메시 찾기 (주무기)
-        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapons/DualBlades/DualBlade_Mesh"));
+        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapon/DualBlades/DualBlade_Mesh"));
         Scale = FVector(0.8f);
 
         // 쌍검인 경우 왼손에도 무기 추가
@@ -816,8 +808,7 @@ void AMHProjectCharacter::UpdateWeaponVisuals()
 
     case EWeaponType::HammerAxe:
         // 해머/도끼 메시 찾기
-        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapons/Hammer/Hammer_Mesh"));
-        Scale = FVector(1.1f);
+        NewMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Weapon/Hammer/Hammer_Mesh"));
         break;
     }
 
@@ -830,8 +821,10 @@ void AMHProjectCharacter::UpdateWeaponVisuals()
 
     if (NewMesh)
     {
+
         WeaponMesh->SetStaticMesh(NewMesh);
         WeaponMesh->SetRelativeScale3D(Scale);
+        WeaponMesh->SetRelativeRotation(Rotation);
     }
 }
 
