@@ -39,6 +39,25 @@ enum class EElementalType : uint8
     Dragon      UMETA(DisplayName = "Dragon")
 };
 
+// 무기별 특수 상태 열거형
+UENUM(BlueprintType)
+enum class EWeaponSpecialState : uint8
+{
+    None                UMETA(DisplayName = "None"),
+    // 대검 특수 상태
+    GS_TackleReady      UMETA(DisplayName = "Great Sword Tackle Ready"),
+    GS_TackleCharge     UMETA(DisplayName = "Great Sword Tackle Charge"),
+    // 태도 특수 상태
+    LS_SpiritLevel1     UMETA(DisplayName = "Long Sword Spirit Level 1"),
+    LS_SpiritLevel2     UMETA(DisplayName = "Long Sword Spirit Level 2"),
+    LS_SpiritLevel3     UMETA(DisplayName = "Long Sword Spirit Level 3"),
+    // 쌍검 특수 상태
+    DB_DemonMode        UMETA(DisplayName = "Dual Blades Demon Mode"),
+    DB_ArchDemonMode    UMETA(DisplayName = "Dual Blades Arch-Demon Mode"),
+    // 해머 특수 상태
+    HA_PowerChargeMode  UMETA(DisplayName = "Hammer Power Charge Mode")
+};
+
 // 공격 상태 열거형
 UENUM(BlueprintType)
 enum class EAttackState : uint8
